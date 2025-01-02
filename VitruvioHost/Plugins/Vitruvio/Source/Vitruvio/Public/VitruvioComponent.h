@@ -339,6 +339,20 @@ public:
 	bool GetFloatArrayAttribute(const FString& Name, TArray<double>& OutValue) const;
 
 	/**
+	 * Sets a given attribute. If a key with the provided name is not found in the current attributes, the key-value pair will be ignored.
+	 * Regenerates the model if bGenerateModel is set to true. The type of the attribute will be deduced from its
+	 * string representation: <br> "1.0" for the float 1.0 <br> "hello" for the string "hello" and <br> "true" for the bool true <br>
+	 * array values are separated via a comma eg: "1.3,4.5,0" for a float array with the values 1.3, 4.5 and 0.
+	 *
+	 * @param Key The name of the attribute to be changed.
+	 * @param Value The updated/changed value for the attribute.
+	 * @param bGenerateModel Whether a model should be generated after the attribute has been set.
+	 * @param CallbackProxy The optional callback proxy used for generate completed notifications.
+	 */
+	void SetAttribute(const FString& Key, const FString& Value, bool bGenerateModel = true,
+					   UGenerateCompletedCallbackProxy* CallbackProxy = nullptr);
+
+	/**
 	 * Sets the given attributes. If a key from the NewAttributes is not found in the current attributes, the key-value pair will be ignored.
 	 * Regenerates the model if bGenerateModel is set to true. The type of the attribute will be deduced from its
 	 * string representation: <br> "1.0" for the float 1.0 <br> "hello" for the string "hello" and <br> "true" for the bool true <br>
