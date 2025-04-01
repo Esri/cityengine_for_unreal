@@ -45,6 +45,7 @@ private:
 	void BuildAttributeEditor(IDetailLayoutBuilder& DetailBuilder, IDetailCategoryBuilder& RootCategory, UVitruvioComponent* VitruvioActor);
 
 	TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
+	TArray<UVitruvioComponent*> SelectedVitruvioComponents;
 	TWeakPtr<IDetailLayoutBuilder> CachedDetailBuilder;
 	TSharedPtr<SWidget> ColorPickerParentWidget;
 	TSharedPtr<STextComboBox> ChangeInitialShapeCombo;
@@ -66,12 +67,14 @@ public:
 	SLATE_ATTRIBUTE(TArray<TSharedPtr<T>>, ComboItemList)
 	SLATE_EVENT(SelectionChanged, OnSelectionChanged)
 	SLATE_ATTRIBUTE(TSharedPtr<T>, InitialValue)
+	SLATE_ATTRIBUTE(bool, HasMultipleValues)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
 
 private:
 	TArray<TSharedPtr<T>> ComboItemList;
+	bool HasMultipleValues;
 
 	TSharedRef<SWidget> OnGenerateComboWidget(TSharedPtr<T> InValue) const;
 };

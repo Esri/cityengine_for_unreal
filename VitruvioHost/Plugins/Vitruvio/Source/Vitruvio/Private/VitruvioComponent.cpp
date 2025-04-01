@@ -652,10 +652,69 @@ bool UVitruvioComponent::GetFloatArrayAttribute(const FString& Name, TArray<doub
 	return GetAttribute<UFloatArrayAttribute, TArray<double>>(this->Attributes, Name, OutValue);
 }
 
+void UVitruvioComponent::SetAttribute(const FString& Key, const FString& Value, bool bGenerateModel,
+									   UGenerateCompletedCallbackProxy* CallbackProxy)
+{
+	URuleAttribute* const* AttributeResult = this->Attributes.Find(Key);
+	if (!AttributeResult)
+	{
+		return;
+	}
+
+	URuleAttribute const* Attribute = *AttributeResult;
+
+	if (Cast<UFloatAttribute>(Attribute))
+	{
+		EvaluateAndSetAttribute<UFloatAttribute, double>(this, this->Attributes, Key, FCString::Atof(*Value), bGenerateModel, CallbackProxy);
+	}
+	else if (Cast<UBoolAttribute>(Attribute))
+	{
+		EvaluateAndSetAttribute<UBoolAttribute, bool>(this, this->Attributes, Key, ToBool(Value), bGenerateModel, CallbackProxy);
+	}
+	else if (Cast<UStringAttribute>(Attribute))
+	{
+		EvaluateAndSetAttribute<UStringAttribute, FString>(this, this->Attributes, Key, Value, bGenerateModel, CallbackProxy);
+	}
+	else if (Cast<UArrayAttribute>(Attribute))
+	{
+		FString ArrayValue = Value;
+		if (Value.StartsWith(TEXT("[")) && Value.EndsWith(TEXT("]")))
+		{
+			ArrayValue = Value.LeftChop(1).RightChop(1);
+		}
+
+		TArray<FString> StringValues;
+		ArrayValue.ParseIntoArray(StringValues, TEXT(","));
+
+		if (Cast<UFloatArrayAttribute>(Attribute))
+		{
+			TArray<double> DoubleValues;
+			Algo::Transform(StringValues, DoubleValues, [](const auto& In) { return FCString::Atof(*In); });
+			EvaluateAndSetAttribute<UFloatArrayAttribute, TArray<double>>(this, this->Attributes, Key, DoubleValues, bGenerateModel, CallbackProxy);
+		}
+		else if (Cast<UBoolArrayAttribute>(Attribute))
+		{
+			TArray<bool> BoolValues;
+			Algo::Transform(StringValues, BoolValues, [](const auto& In) { return ToBool(In); });
+			EvaluateAndSetAttribute<UBoolArrayAttribute, TArray<bool>>(this, this->Attributes, Key, BoolValues, bGenerateModel, CallbackProxy);
+		}
+		else
+		{
+			EvaluateAndSetAttribute<UStringArrayAttribute, TArray<FString>>(this, this->Attributes, Key, StringValues, bGenerateModel, CallbackProxy);
+		}
+	}
+}
+
 void UVitruvioComponent::SetAttributes(const TMap<FString, FString>& NewAttributes, bool bGenerateModel,
 									   UGenerateCompletedCallbackProxy* CallbackProxy)
 {
-	EvaluateAndSetAttributes(this, NewAttributes, bGenerateModel, CallbackProxy);
+	for (const auto& KeyValues : NewAttributes)
+	{
+		const FString& Value = KeyValues.Value;
+		const FString& Key = KeyValues.Key;
+
+		this->SetAttribute(Key, Value, bGenerateModel, CallbackProxy);
+	}
 }
 
 void UVitruvioComponent::SetMeshInitialShape(UStaticMesh* StaticMesh, bool bGenerateModel, UGenerateCompletedCallbackProxy* CallbackProxy)
