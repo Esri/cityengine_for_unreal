@@ -1,0 +1,106 @@
+name: generic-base
+
+# This is a generic workflow template that can be used by other workflows via the 'workflow_call' trigger.
+
+on:
+  workflow_call:
+    inputs:
+      build_profile:
+        description: Build profile to use for build and test steps (e.g. 'xr_viewer_package')
+        required: true
+        default: none
+        type: string
+      test_profile:
+        description: Test profile to use for test step (e.g. 'xr_viewer_test')
+        required: false
+        default: none
+        type: string
+      config:
+        description: Build configuration (Development, Shipping, ...)
+        required: false
+        default: Development
+        type: string
+      lane:
+        description: Build lane for publishing subdirectory (e.g. dev, daily, weekly_scan)
+        required: false
+        default: ''
+        type: string
+      run_tests:
+        description: Run tests
+        required: false
+        default: false
+        type: boolean
+      run_smoke_tests:
+        description: Run smoke tests after packaging
+        required: false
+        default: false
+        type: boolean
+      codeql_language:
+        description: Choose CodeQL language ('disable' to disable scan, 'c-cpp' or 'javascript-typescript' to enable scan)
+        required: false
+        default: disable
+        type: string
+    outputs:
+      build_archive_path:
+        description: Published build archive file path from package step
+        value: ${{ jobs.package.outputs.build_archive_path }}
+      build_archive_url:
+        description: Published build archive URL from package step
+        value: ${{ jobs.package.outputs.build_archive_url }}
+      version:
+        description: Application version reported by package step
+        value: ${{ jobs.package.outputs.version }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  CODEQL_DB: C:\tmp\codeql-db-${{ inputs.build_profile }}-${{ inputs.codeql_language }}
+
+jobs:
+  package:
+    name: Package project
+    runs-on: [self-hosted, zrh-unreal]
+    outputs:
+      build_archive_path: ${{ steps.build_project.outputs.build_archive_path }}
+      build_archive_url: ${{ steps.build_project.outputs.build_archive_url }}
+      version: ${{ steps.build_project.outputs.version }}
+
+    steps:
+      - name: Pull source
+        uses: actions/checkout@v6
+        with:
+          lfs: true
+      - name: Pull build scripts
+        run: git -C C:\dev\git\zrh-xr-devops\ pull -q
+
+      - name: Initialize CodeQL DB
+        if: ${{ inputs.codeql_language != 'disable' }}
+        run: |
+          if (Test-Path ${{ env.CODEQL_DB }}) { Remove-Item -Recurse -Force ${{ env.CODEQL_DB }} }
+
+      - name: Initialize CodeQL
+        if: ${{ inputs.codeql_language != 'disable' }}
+        uses: github/codeql-action/init@v4
+        with:
+          build-mode: ${{ inputs.codeql_language == 'c-cpp' && 'manual' || 'none' }}
+          db-location: ${{ env.CODEQL_DB }}
+          languages: ${{ inputs.codeql_language }}
+
+      - name: Build project
+        id: build_project
+        if: ${{ inputs.codeql_language != 'javascript-typescript' }}
+        run: |
+          C:\dev\git\zrh-xr-devops\scripts\ue_build_action.py ${{ github.workspace }} ${{ github.ref_name }} ${{ inputs.build_profile }} --build-config=${{ inputs.config }} ${{ inputs.lane != '' && format('--build-lane={0}', inputs.lane) || '' }}
+ 
+      - name: Analyze CodeQL
+        if: ${{ inputs.codeql_language != 'disable' }}
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "codeql/language:${{ inputs.codeql_language }}"
+
+      - name: Run smoke tests
+        if: ${{ inputs.run_smoke_tests }}
+        run: |
+          C:\dev\git\zrh-xr-devops\scripts\ue_run_action.py ${{ github.workspace }} ${{ github.ref_name }} ${{ inputs.build_profile }}

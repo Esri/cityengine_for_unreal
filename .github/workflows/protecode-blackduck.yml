@@ -1,0 +1,82 @@
+name: protecode-blackduck
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build dev package for protecode
+    uses: ./.github/workflows/generic-base.yml
+    with:
+      build_profile: vitruvio_host_package
+      config: Development
+      lane: ce4ue
+
+  upload:
+    name: Upload dev build to protecode
+    needs: build
+    runs-on: [self-hosted, zrh-unreal]
+
+    env:
+      BLACKDUCK_BASE_URL: ${{ vars.BLACKDUCK_BASE_URL }}
+      BLACKDUCK_API_KEY: ${{ secrets.BLACKDUCK_API_KEY }}
+
+      BLACKDUCK_GROUP_ID: ${{ vars.BLACKDUCK_GROUP_ID }}
+      BLACKDUCK_APPLICATION_NAME: ${{ vars.BLACKDUCK_APPLICATION_NAME }}
+
+      BLACKDUCK_FILE_PATH: ${{ needs.build.outputs.build_archive_path }}
+
+    steps:
+      - name: Upload Black Duck artifact
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:BLACKDUCK_BASE_URL)) {
+            throw "Missing required environment variable BLACKDUCK_BASE_URL"
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:BLACKDUCK_API_KEY)) {
+            throw "Missing required secret BLACKDUCK_API_KEY"
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:BLACKDUCK_GROUP_ID)) {
+            throw "Missing required environment variable BLACKDUCK_GROUP_ID"
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:BLACKDUCK_APPLICATION_NAME)) {
+            throw "Missing required environment variable BLACKDUCK_APPLICATION_NAME"
+          }
+
+          if ($env:BLACKDUCK_APPLICATION_NAME -notmatch '^[a-zA-Z0-9 _\.\=\(\)\-]+$') {
+            throw "BLACKDUCK_APPLICATION_NAME contains unsupported characters"
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:BLACKDUCK_FILE_PATH)) {
+            throw "Missing required build output build_archive_path"
+          }
+
+          if (-not (Test-Path -LiteralPath $env:BLACKDUCK_FILE_PATH)) {
+            throw "Artifact not found: $env:BLACKDUCK_FILE_PATH"
+          }
+            
+          $fileName = $env:BLACKDUCK_APPLICATION_NAME
+          $encodedFileName = [System.Uri]::EscapeDataString($fileName)
+          $uploadUrl = '{0}/api/upload/{1}' -f $env:BLACKDUCK_BASE_URL.TrimEnd('/'), $encodedFileName
+
+          $headers = @{
+            Authorization = "Bearer $env:BLACKDUCK_API_KEY"
+            Group = $env:BLACKDUCK_GROUP_ID
+          }
+
+          $request = @{
+            Method = 'Put'
+            Uri = $uploadUrl
+            Headers = $headers
+            InFile = $env:BLACKDUCK_FILE_PATH
+            ContentType = 'application/octet-stream'
+          }
+
+          $response = Invoke-RestMethod @request
+
+          if ($null -ne $response) {
+            $response | ConvertTo-Json -Depth 20
+          }

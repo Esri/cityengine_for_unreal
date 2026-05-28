@@ -1,0 +1,17 @@
+name: codeql
+
+on:
+  workflow_dispatch:
+
+jobs:
+  scan:
+    name: CodeQL scan
+    permissions:
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/generic-base.yml
+    with:
+      build_profile: vitruvio_host_package
+      config: Development
+      lane: ce4ue
+      codeql_language: c-cpp

@@ -1,0 +1,31 @@
+name: build-dev
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - develop
+
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  package-host:
+    name: Package host project (ce4ue lane)
+    uses: ./.github/workflows/generic-base.yml
+    with:
+      build_profile: vitruvio_host_package
+      config: ${{ github.ref == 'refs/heads/main' && 'Shipping' || 'Development' }}
+      lane: ce4ue
+      run_smoke_tests: true
+
+  build-plugin:
+    name: Build plugin (ce4ue lane)
+    uses: ./.github/workflows/generic-base.yml
+    with:
+      build_profile: vitruvio_plugin_build
+      config: Development
+      lane: ce4ue
