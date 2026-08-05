@@ -28,9 +28,9 @@ public class PRT : ModuleRules
 
 	// PRT version and toolchain (needs to be correct for download URL)
 	private const int PrtMajor = 3;
-	private const int PrtMinor = 3;
-	private const int PrtBuild = 11669;
-	private const string PrtToolchain = "win10-vc1438-x86_64-rel-opt";
+	private const int PrtMinor = 4;
+	private const int PrtBuild = 12206;
+	private const string PrtToolchain = "win10-vc1444-x86_64-rel-opt";
 
 	private const string PrtCoreDllName = "com.esri.prt.core.dll";
 
