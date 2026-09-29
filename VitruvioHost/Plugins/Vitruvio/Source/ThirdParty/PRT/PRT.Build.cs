@@ -21,16 +21,12 @@ using UnrealBuildTool;
 using System.ComponentModel.Design;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
+using EpicGames.Core;
 
 public class PRT : ModuleRules
 {
 	private readonly bool Debug;
-
-	// PRT version and toolchain (needs to be correct for download URL)
-	private const int PrtMajor = 3;
-	private const int PrtMinor = 4;
-	private const int PrtBuild = 12206;
-	private const string PrtToolchain = "win10-vc1444-x86_64-rel-opt";
 
 	private const string PrtCoreDllName = "com.esri.prt.core.dll";
 
@@ -53,6 +49,20 @@ public class PRT : ModuleRules
 		else
 		{
 			throw new System.PlatformNotSupportedException();
+		}
+
+		string VersionPath = Path.Combine(ModuleDirectory, "PRT.version.json");
+		ExternalDependencies.Add(VersionPath);
+		JsonObject Version = JsonObject.Read(new FileReference(VersionPath));
+		if (!Version.TryGetIntegerField("major", out int PrtMajor) || PrtMajor <= 0 ||
+			!Version.TryGetIntegerField("minor", out int PrtMinor) || PrtMinor < 0 ||
+			!Version.TryGetIntegerField("build", out int PrtBuild) || PrtBuild <= 0 ||
+			!Version.TryGetStringField("toolchain", out string PrtToolchain) ||
+			!Regex.IsMatch(PrtToolchain, @"^win[0-9]+-vc[0-9]{4}-x86_64-rel-opt$") ||
+			!Version.TryGetStringField("sha256", out string PrtSha256) ||
+			!Regex.IsMatch(PrtSha256, @"^[0-9a-fA-F]{64}$"))
+		{
+			throw new BuildException($"Invalid PRT SDK metadata in {VersionPath}: expected major/minor/build, a Windows x64 release toolchain, and a SHA-256 digest.");
 		}
 
 		string LibDir = Path.Combine(ModuleDirectory, "lib", Platform.Name, "Release");
