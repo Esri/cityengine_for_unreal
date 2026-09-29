@@ -1,17 +1,34 @@
-# Building the UnrealGeometryEncoder Library
+# Building UnrealGeometryEncoder
 
-The UnrealGeometryEncoder is loaded by PRT at runtime and implements predefined methods which are called by PRT and are used to encode generated geometry into a format specific for Unreal. The UnrealGeometryEncoder calls a callback interface defined in `IUnrealCallbacks.h` to pass the encoded data to the consumer (the Vitruvio plugin).
-
-To build the UnrealGeometryEncoder follow these steps.
+UnrealGeometryEncoder is a PRT extension DLL. Building it requires **no Unreal installation or custom engine**. PRT itself is downloaded precompiled, not built from source.
 
 ## Prerequisites
-- To build the UnrealGeometryEncoder library you will need a source build of Unreal (as an Unreal `TargetType.Program` build is not possible with a prebuilt Unreal). To setup an Unreal Source build follow the steps described here https://github.com/EpicGames/UnrealEngine#getting-up-and-running
-- Optionally a Python 3.8 installation (for easier setup)
 
-## Windows Build Setup
-1. Open a Command Prompt with administrator permissions (important as otherwise creating symlinks will not work)
-2. Go to the "Extras" folder of the Vitruvio Plugin (`cd "C:/dev/git/vitruvio/VitruvioHost/Plugins/Vitruvio/Extras"`)
-3. Run the setup.py (`python setup.py`). This will setup a symlink of the UnrealGeometryEncoder source into the `VitruvioHost/Source` folder
-4. In the Windows Explorer navigate to the VitruvioHost root folder and run "Generate Visual Studio Project files" from the VitruvioHost.uproject context menu (this might take a while if PRT needs to be downloaded)
-5. Open the Project in Visual Studio
-6. Build the UnrealGeometryEncoder Project found in the "Programs" directory. Building it will automatically update the UnrealGeometryEncoderLib in the ThirdParty folder of PRT with the latest include and library files as a post-build step
+- Windows x64 supported by the [CityEngine SDK](https://github.com/Esri/cityengine-sdk#general-software-requirements).
+- Visual Studio 2022 with **Desktop development with C++**, **MSVC v143 14.44** (Individual components), and a Windows SDK.
+- CMake 3.27 or later on PATH.
+- Internet access to GitHub for the first SDK download.
+
+## Build and install
+
+Open a **Developer Command Prompt for VS 2022**, select the matching x64 compiler, and change to this `Extras` directory:
+
+```bat
+call "%VSINSTALLDIR%VC\Auxiliary\Build\vcvars64.bat" -vcvars_ver=14.44
+cmake -S UnrealGeometryEncoder -B UnrealGeometryEncoder\Build -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build UnrealGeometryEncoder\Build
+```
+
+CMake downloads the official SDK into `UnrealGeometryEncoder\Build\_deps`, verifies its SHA-256, and reuses that cache on subsequent builds. It does not use or modify the plugin's installed SDK. `PRT.Build.cs` continues downloading the plugin's copy independently for Unreal builds.
+
+Close Unreal before installing the rebuilt encoder:
+
+```bat
+cmake --install UnrealGeometryEncoder\Build
+```
+
+Installation updates `Source\ThirdParty\UnrealGeometryEncoderLib` with the DLL, import LIB, EXP, PDB, and all public headers. Building alone does not overwrite the bundled encoder. To inspect a staged installation first:
+
+```bat
+cmake --install UnrealGeometryEncoder\Build --prefix "C:\temp\UnrealGeometryEncoder"
+```
