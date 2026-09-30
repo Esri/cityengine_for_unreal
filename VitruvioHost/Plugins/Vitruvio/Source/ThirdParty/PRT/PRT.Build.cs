@@ -21,16 +21,12 @@ using UnrealBuildTool;
 using System.ComponentModel.Design;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
+using EpicGames.Core;
 
 public class PRT : ModuleRules
 {
 	private readonly bool Debug;
-
-	// PRT version and toolchain (needs to be correct for download URL)
-	private const int PrtMajor = 3;
-	private const int PrtMinor = 3;
-	private const int PrtBuild = 11669;
-	private const string PrtToolchain = "win10-vc1438-x86_64-rel-opt";
 
 	private const string PrtCoreDllName = "com.esri.prt.core.dll";
 
@@ -55,6 +51,20 @@ public class PRT : ModuleRules
 			throw new System.PlatformNotSupportedException();
 		}
 
+		string VersionPath = Path.Combine(ModuleDirectory, "PRT.version.json");
+		ExternalDependencies.Add(VersionPath);
+		JsonObject Version = JsonObject.Read(new FileReference(VersionPath));
+		if (!Version.TryGetIntegerField("major", out int PrtMajor) || PrtMajor <= 0 ||
+			!Version.TryGetIntegerField("minor", out int PrtMinor) || PrtMinor < 0 ||
+			!Version.TryGetIntegerField("build", out int PrtBuild) || PrtBuild <= 0 ||
+			!Version.TryGetStringField("toolchain", out string PrtToolchain) ||
+			!Regex.IsMatch(PrtToolchain, @"^win[0-9]+-vc[0-9]{4}-x86_64-rel-opt$") ||
+			!Version.TryGetStringField("sha256", out string PrtSha256) ||
+			!Regex.IsMatch(PrtSha256, @"^[0-9a-fA-F]{64}$"))
+		{
+			throw new BuildException($"Invalid PRT SDK metadata in {VersionPath}: expected major/minor/build, a Windows x64 release toolchain, and a SHA-256 digest.");
+		}
+
 		string LibDir = Path.Combine(ModuleDirectory, "lib", Platform.Name, "Release");
 		string BinDir = Path.Combine(ModuleDirectory, "bin", Platform.Name, "Release");
 		string IncludeDir = Path.Combine(ModuleDirectory, "include");
@@ -74,14 +84,11 @@ public class PRT : ModuleRules
 
 			string PrtLibName = string.Format("esri_ce_sdk-{0}-{1}", PrtVersion, PrtToolchain);
 			string PrtLibZipFile = PrtLibName + ".zip";
+			string PrtLibZipPath = Path.Combine(ModuleDirectory, PrtLibZipFile);
 			string PrtDownloadUrl = Path.Combine(PrtUrl, PrtVersion, PrtLibZipFile);
 
 			try
 			{
-				if (Directory.Exists(LibDir)) Directory.Delete(LibDir, true);
-				if (Directory.Exists(BinDir)) Directory.Delete(BinDir, true);
-				if (Directory.Exists(IncludeDir)) Directory.Delete(IncludeDir, true);
-
 				if (Debug)
 				{
 					if (!PrtInstalled) Console.WriteLine("PRT not found");
@@ -90,7 +97,23 @@ public class PRT : ModuleRules
 
 				if (Debug) System.Console.WriteLine("Downloading " + PrtDownloadUrl + "...");
 				
-				Platform.DownloadFile(PrtDownloadUrl, Path.Combine(ModuleDirectory, PrtLibZipFile));
+				Platform.DownloadFile(PrtDownloadUrl, PrtLibZipPath);
+
+				string ActualSha256;
+				using (FileStream Archive = File.OpenRead(PrtLibZipPath))
+				using (SHA256 Hasher = SHA256.Create())
+				{
+					ActualSha256 = Convert.ToHexString(Hasher.ComputeHash(Archive));
+				}
+
+				if (!string.Equals(ActualSha256, PrtSha256, StringComparison.OrdinalIgnoreCase))
+				{
+					throw new BuildException($"SHA-256 mismatch for PRT SDK '{PrtLibZipFile}': expected {PrtSha256}, got {ActualSha256}.");
+				}
+
+				if (Directory.Exists(LibDir)) Directory.Delete(LibDir, true);
+				if (Directory.Exists(BinDir)) Directory.Delete(BinDir, true);
+				if (Directory.Exists(IncludeDir)) Directory.Delete(IncludeDir, true);
 
 				if (Debug) System.Console.WriteLine("Extracting " + PrtLibZipFile + "...");
 
@@ -104,8 +127,9 @@ public class PRT : ModuleRules
 			}
 			finally
 			{
-				Directory.Delete(Path.Combine(ModuleDirectory, PrtLibName), true);
-				File.Delete(Path.Combine(ModuleDirectory, PrtLibZipFile));
+				File.Delete(PrtLibZipPath);
+				string ExtractedDirectory = Path.Combine(ModuleDirectory, PrtLibName);
+				if (Directory.Exists(ExtractedDirectory)) Directory.Delete(ExtractedDirectory, true);
 			}
 		}
 		else if (Debug)
