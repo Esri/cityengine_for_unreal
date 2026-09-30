@@ -84,14 +84,11 @@ public class PRT : ModuleRules
 
 			string PrtLibName = string.Format("esri_ce_sdk-{0}-{1}", PrtVersion, PrtToolchain);
 			string PrtLibZipFile = PrtLibName + ".zip";
+			string PrtLibZipPath = Path.Combine(ModuleDirectory, PrtLibZipFile);
 			string PrtDownloadUrl = Path.Combine(PrtUrl, PrtVersion, PrtLibZipFile);
 
 			try
 			{
-				if (Directory.Exists(LibDir)) Directory.Delete(LibDir, true);
-				if (Directory.Exists(BinDir)) Directory.Delete(BinDir, true);
-				if (Directory.Exists(IncludeDir)) Directory.Delete(IncludeDir, true);
-
 				if (Debug)
 				{
 					if (!PrtInstalled) Console.WriteLine("PRT not found");
@@ -100,7 +97,23 @@ public class PRT : ModuleRules
 
 				if (Debug) System.Console.WriteLine("Downloading " + PrtDownloadUrl + "...");
 				
-				Platform.DownloadFile(PrtDownloadUrl, Path.Combine(ModuleDirectory, PrtLibZipFile));
+				Platform.DownloadFile(PrtDownloadUrl, PrtLibZipPath);
+
+				string ActualSha256;
+				using (FileStream Archive = File.OpenRead(PrtLibZipPath))
+				using (SHA256 Hasher = SHA256.Create())
+				{
+					ActualSha256 = Convert.ToHexString(Hasher.ComputeHash(Archive));
+				}
+
+				if (!string.Equals(ActualSha256, PrtSha256, StringComparison.OrdinalIgnoreCase))
+				{
+					throw new BuildException($"SHA-256 mismatch for PRT SDK '{PrtLibZipFile}': expected {PrtSha256}, got {ActualSha256}.");
+				}
+
+				if (Directory.Exists(LibDir)) Directory.Delete(LibDir, true);
+				if (Directory.Exists(BinDir)) Directory.Delete(BinDir, true);
+				if (Directory.Exists(IncludeDir)) Directory.Delete(IncludeDir, true);
 
 				if (Debug) System.Console.WriteLine("Extracting " + PrtLibZipFile + "...");
 
@@ -114,8 +127,9 @@ public class PRT : ModuleRules
 			}
 			finally
 			{
-				Directory.Delete(Path.Combine(ModuleDirectory, PrtLibName), true);
-				File.Delete(Path.Combine(ModuleDirectory, PrtLibZipFile));
+				File.Delete(PrtLibZipPath);
+				string ExtractedDirectory = Path.Combine(ModuleDirectory, PrtLibName);
+				if (Directory.Exists(ExtractedDirectory)) Directory.Delete(ExtractedDirectory, true);
 			}
 		}
 		else if (Debug)

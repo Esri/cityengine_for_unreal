@@ -19,7 +19,7 @@ cmake -S UnrealGeometryEncoder -B UnrealGeometryEncoder\Build -G "NMake Makefile
 cmake --build UnrealGeometryEncoder\Build
 ```
 
-CMake downloads the official SDK into `UnrealGeometryEncoder\Build\_deps`, verifies its SHA-256, and reuses that cache on subsequent builds. It does not use or modify the plugin's installed SDK. `PRT.Build.cs` continues downloading the plugin's copy independently for Unreal builds.
+CMake downloads the official SDK into `UnrealGeometryEncoder\Build\_deps`, verifies its SHA-256, and reuses that cache on subsequent builds. It does not use or modify the plugin's installed SDK. `PRT.Build.cs` independently downloads and verifies the plugin's copy against the same SHA-256 before extraction.
 
 Close Unreal before installing the rebuilt encoder:
 
