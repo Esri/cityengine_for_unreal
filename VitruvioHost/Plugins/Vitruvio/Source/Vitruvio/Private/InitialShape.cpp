@@ -21,6 +21,7 @@
 #include "CompGeom/PolygonTriangulation.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "HAL/PlatformProperties.h"
 #include "Misc/MessageDialog.h"
 #include "UObject/SavePackage.h"
 
@@ -136,6 +137,14 @@ FInitialShapePolygon CreateInitialPolygonFromStaticMesh(const UStaticMesh* Stati
 	{
 		TArray<int32> RemappedIndices;
 		const FStaticMeshLODResources& LOD = StaticMesh->GetRenderData()->LODResources[0];
+
+		if (FPlatformProperties::RequiresCookedData() && !LOD.IndexBuffer.GetAllowCPUAccess())
+		{
+			UE_LOG(LogVitruvioComponent, Warning,
+				   TEXT("Cannot read initial shape from static mesh %s. Enable 'Allow CPU Access' on the mesh and recook it to use it at runtime."),
+				   *StaticMesh->GetName());
+			return {};
+		}
 
 		for (auto SectionIndex = 0; SectionIndex < LOD.Sections.Num(); ++SectionIndex)
 		{
@@ -271,6 +280,8 @@ void BuildMesh(const TArray<const FMeshDescription*>& MeshDescriptions, UStaticM
 {
 	UStaticMesh::FBuildMeshDescriptionsParams Params;
 	Params.bMarkPackageDirty = false;
+	// Initial shapes are read back from render data, including in cooked builds.
+	Params.bAllowCpuAccess = true;
 #if !WITH_EDITOR
 	Params.bFastBuild = true;
 #endif
