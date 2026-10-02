@@ -267,7 +267,7 @@ void CleanupTempRpkFolder()
 
 FString GetPlatformName()
 {
-#if PLATFORM_64BITS && PLATFORM_WINDOWS
+#if PLATFORM_WINDOWS
 	return "Win64";
 #elif PLATFORM_MAC
 	return "Mac";

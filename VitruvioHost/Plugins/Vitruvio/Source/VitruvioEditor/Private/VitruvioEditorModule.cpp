@@ -199,7 +199,7 @@ void VitruvioEditorModule::StartupModule()
 
 	GenerateCompletedDelegateHandle = VitruvioModule::Get().OnAllGenerateCompleted.AddRaw(this, &VitruvioEditorModule::OnGenerateCompleted);
 
-	FCoreDelegates::OnPostEngineInit.AddRaw(this, &VitruvioEditorModule::OnPostEngineInit);
+	FCoreDelegates::GetOnPostEngineInit().AddRaw(this, &VitruvioEditorModule::OnPostEngineInit);
 
 	FLevelEditorModule& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
 	MapChangedHandle = LevelEditor.OnMapChanged().AddRaw(this, &VitruvioEditorModule::OnMapChanged);
@@ -231,7 +231,7 @@ void VitruvioEditorModule::ShutdownModule()
 			return Delegate.GetHandle() == LevelViewportContextMenuVitruvioExtenderDelegateHandle;
 		});
 
-	FCoreDelegates::OnPostEngineInit.RemoveAll(this);
+	FCoreDelegates::GetOnPostEngineInit().RemoveAll(this);
 	VitruvioModule::Get().OnAllGenerateCompleted.Remove(GenerateCompletedDelegateHandle);
 	if (GEditor)
 	{
