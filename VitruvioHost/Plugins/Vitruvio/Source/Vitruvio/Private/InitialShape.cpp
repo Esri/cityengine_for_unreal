@@ -91,7 +91,7 @@ bool HasValidGeometry(const FInitialShapePolygon& Polygon)
 
 	// 3. Check if any of the triangles is NOT degenerate (which means the polygon has valid geometry) if all
 	// faces are degenerate we return false (meaning non valid geometry)
-	const float ComparisonThreshold = 0.0001;
+	const float ComparisonThreshold = 0.0001f;
 	const float AdjustedComparisonThreshold = FMath::Max(ComparisonThreshold, MIN_flt);
 
 	FStaticMeshAttributes Attributes(Description);
