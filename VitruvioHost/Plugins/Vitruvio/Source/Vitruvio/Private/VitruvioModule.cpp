@@ -25,6 +25,7 @@
 #include "Util/PolygonWindings.h"
 
 #include "Async/Async.h"
+#include "Engine/World.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformFileManager.h"
 #include "Interfaces/IPluginManager.h"
@@ -353,10 +354,14 @@ void VitruvioModule::StartupModule()
 	}
 
 	InitializePrt();
+
+	OnWorldCleanupHandle = FWorldDelegates::OnWorldCleanup.AddRaw(this, &VitruvioModule::OnWorldCleanup);
 }
 
 void VitruvioModule::ShutdownModule()
 {
+	FWorldDelegates::OnWorldCleanup.Remove(OnWorldCleanupHandle);
+
 	if (!Initialized)
 	{
 		return;
@@ -1046,6 +1051,18 @@ void VitruvioModule::InvalidateOcclusionHandles(const TArray<int64>& InitialShap
 	}
 
 	OcclusionSet->dispose(InvalidateHandles.GetData(), InvalidateHandles.Num());
+}
+
+void VitruvioModule::OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources)
+{
+	if (!Initialized || !World || !World->IsGameWorld())
+	{
+		return;
+	}
+
+	// Cached meshes keep collision objects in the old world and must be rebuilt after it is destroyed.
+	MeshCache.Empty();
+	InvalidateAllOcclusionHandles();
 }
 
 void VitruvioModule::InvalidateAllOcclusionHandles()
