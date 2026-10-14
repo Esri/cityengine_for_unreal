@@ -1,10 +1,10 @@
 # ArcGIS CityEngine for Unreal Engine
 
-ArcGIS CityEngine for Unreal Engine is an [Unreal Engine 5](https://www.unrealengine.com/en-US/unreal-engine-5) (UE5) plugin which enables the use of ArcGIS CityEngine shape grammar rules in UE5 for the generation of procedural buildings. Therefore, game designers or artists do not have to leave UE5 to make use of CityEngine’s procedural modeling power. The buildings stay procedural all time and artists can change the height, style and appearance of buildings easily with a parametric interface. In addition, buildings can also be generated at runtime.
+ArcGIS CityEngine for Unreal Engine is an [Unreal Engine 5](https://www.unrealengine.com/en-US/unreal-engine-5) (UE5) plugin for generating procedural buildings using CityEngine shape grammar rules. It brings CityEngine’s procedural modeling capabilities directly into UE5, so designers and artists can create and customize buildings without leaving the editor. Buildings remain procedural, allowing their height, style, and appearance to be adjusted through a parametric interface. The plugin also supports building generation at runtime.
 
-As input the plugin requires rule packages (RPK) which are authored in CityEngine. An RPK includes assets and a CGA rule file which encodes an architectural style. The download section below provides links to the several RPKs which can be used out-of-the-box.
+The plugin uses rule packages (RPKs) authored in CityEngine. Each package contains a CGA rule file and associated assets that define an architectural style. The download section below provides ready-to-use RPKs to help you get started.
 
-The latest release is available in the [downloads section on GitHub](https://github.com/Esri/vitruvio/releases/latest). Please refer to the [installation guide](doc/installation.md) for installation instructions. Examples can be downloaded from [ArcGIS CityEngine for Unreal Engine page](https://esri.github.io/cityengine/vitruvio#examples).
+Download the latest release from the [downloads section on GitHub](https://github.com/Esri/vitruvio/releases/latest) and follow the [installation guide](doc/installation.md) to set up the plugin. Example projects are available on the [ArcGIS CityEngine for Unreal Engine page](https://esri.github.io/cityengine/vitruvio#examples).
 
 ![City generated using ArcGIS CityEngine for Unreal Engine](doc/img/vitruvio_paris.jpg)
 
