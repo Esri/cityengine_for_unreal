@@ -20,23 +20,38 @@ on:
         required: false
         default: Development
         type: string
+      ubt_args:
+        description: Extra UBT arguments for the build step (empty preserves environment and profile defaults)
+        required: false
+        default: ''
+        type: string
       lane:
         description: Build lane for publishing subdirectory (e.g. dev, daily, weekly_scan)
         required: false
         default: ''
         type: string
+      run_build:
+        description: Build and package the product, including any configured smoke tests
+        required: false
+        default: true
+        type: boolean
       run_tests:
         description: Run tests
         required: false
         default: false
         type: boolean
+      test_labels:
+        description: JSON array of PR labels forwarded to the test action wrapper
+        required: false
+        default: '[]'
+        type: string
       run_smoke_tests:
         description: Run smoke tests after packaging
         required: false
         default: false
         type: boolean
       codeql_language:
-        description: Choose CodeQL language ('disable' to disable scan, 'c-cpp' or 'javascript-typescript' to enable scan)
+        description: Choose CodeQL language (or 'disable' to disable scan)
         required: false
         default: disable
         type: string
@@ -51,16 +66,13 @@ on:
         description: Application version reported by package step
         value: ${{ jobs.package.outputs.version }}
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_name }}
-  cancel-in-progress: false
-
 env:
   CODEQL_DB: C:\tmp\codeql-db-${{ inputs.build_profile }}-${{ inputs.codeql_language }}
 
 jobs:
   package:
-    name: Package project
+    name: Build & test project
+    if: ${{ inputs.run_build || inputs.run_tests }}
     runs-on: [self-hosted, zrh-unreal]
     outputs:
       build_archive_path: ${{ steps.build_project.outputs.build_archive_path }}
@@ -68,39 +80,70 @@ jobs:
       version: ${{ steps.build_project.outputs.version }}
 
     steps:
+      # note: we cannot run "with: lfs: true" due to custom endpoint in .lfsconfig
       - name: Pull source
         uses: actions/checkout@v6
         with:
-          lfs: true
+          lfs: false
+      - name: Pull LFS objects
+        run: |
+          $lfsUrl = git config -f .lfsconfig --get lfs.url
+          if (-not $lfsUrl) { throw 'Missing lfs.url in .lfsconfig' }
+          git config --local lfs.url $lfsUrl
+          git lfs pull
       - name: Pull build scripts
         run: git -C C:\dev\git\zrh-xr-devops\ pull -q
 
       - name: Initialize CodeQL DB
-        if: ${{ inputs.codeql_language != 'disable' }}
+        if: ${{ inputs.run_build && inputs.codeql_language != 'disable' }}
         run: |
           if (Test-Path ${{ env.CODEQL_DB }}) { Remove-Item -Recurse -Force ${{ env.CODEQL_DB }} }
 
       - name: Initialize CodeQL
-        if: ${{ inputs.codeql_language != 'disable' }}
+        if: ${{ inputs.run_build && inputs.codeql_language != 'disable' }}
         uses: github/codeql-action/init@v4
         with:
-          build-mode: ${{ inputs.codeql_language == 'c-cpp' && 'manual' || 'none' }}
+          # CodeQL: Use this option to enable build for c++ scans
+          # build-mode: ${{ inputs.codeql_language == 'c-cpp' && 'manual' || 'none' }}
+          # CodeQL: Use this option to disable build for c++ and scan source files only
+          build-mode: none
           db-location: ${{ env.CODEQL_DB }}
           languages: ${{ inputs.codeql_language }}
 
       - name: Build project
         id: build_project
-        if: ${{ inputs.codeql_language != 'javascript-typescript' }}
+        # CodeQL: Use this option to enable build for c++ scans
+        # if: ${{ inputs.run_build && (inputs.codeql_language == 'disable' || inputs.codeql_language == 'c-cpp') }}
+        # CodeQL: Use this option to disable build for c++ and scan source files only
+        if: ${{ inputs.run_build && inputs.codeql_language == 'disable' }}
+        env:
+          UE_BUILD_CONFIG: ${{ inputs.config }}
+          UE_BUILD_LANE: ${{ inputs.lane }}
+          UBT_ARGS_OVERRIDE: ${{ inputs.ubt_args }}
         run: |
-          C:\dev\git\zrh-xr-devops\scripts\ue_build_action.py ${{ github.workspace }} ${{ github.ref_name }} ${{ inputs.build_profile }} --build-config=${{ inputs.config }} ${{ inputs.lane != '' && format('--build-lane={0}', inputs.lane) || '' }}
+          if ($env:UBT_ARGS_OVERRIDE) {
+            $env:UE_UBT_ARGS = $env:UBT_ARGS_OVERRIDE
+          }
+          C:\dev\git\zrh-xr-devops\scripts\ue_build_action.py ${{ github.workspace }} ${{ github.ref_name }} ${{ inputs.build_profile }}
  
       - name: Analyze CodeQL
-        if: ${{ inputs.codeql_language != 'disable' }}
+        if: ${{ inputs.run_build && inputs.codeql_language != 'disable' }}
         uses: github/codeql-action/analyze@v4
         with:
           category: "codeql/language:${{ inputs.codeql_language }}"
 
       - name: Run smoke tests
-        if: ${{ inputs.run_smoke_tests }}
+        if: ${{ inputs.run_build && inputs.run_smoke_tests }}
         run: |
           C:\dev\git\zrh-xr-devops\scripts\ue_run_action.py ${{ github.workspace }} ${{ github.ref_name }} ${{ inputs.build_profile }}
+
+      - name: Run tests
+        id: run_tests
+        if: ${{ inputs.run_tests }}
+        env:
+          UE_BUILD_CONFIG: ''
+          UE_BUILD_LANE: ${{ inputs.lane }}
+          UBT_ARGS_OVERRIDE: ${{ inputs.ubt_args }}
+          UE_TEST_LABELS: ${{ inputs.test_labels }}
+        run: |
+          C:\dev\git\zrh-xr-devops\scripts\ue_build_action.py ${{ github.workspace }} ${{ github.ref_name }} ${{ inputs.test_profile }}
