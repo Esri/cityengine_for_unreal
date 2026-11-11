@@ -85,12 +85,8 @@ jobs:
         uses: actions/checkout@v6
         with:
           lfs: false
-      # - name: Pull LFS objects
-      #   run: |
-      #     $lfsUrl = git config -f .lfsconfig --get lfs.url
-      #     if (-not $lfsUrl) { throw 'Missing lfs.url in .lfsconfig' }
-      #     git config --local lfs.url $lfsUrl
-      #     git lfs pull
+      - name: Pull LFS objects
+        run: git lfs pull
       - name: Pull build scripts
         run: git -C C:\dev\git\zrh-xr-devops\ pull -q
 
@@ -134,6 +130,8 @@ jobs:
 
       - name: Run smoke tests
         if: ${{ inputs.run_build && inputs.run_smoke_tests }}
+        env:
+          UE_PUBLISH_PATH: ${{ steps.build_project.outputs.publish_path }}
         run: |
           C:\dev\git\zrh-xr-devops\scripts\ue_run_action.py ${{ github.workspace }} ${{ github.ref_name }} ${{ inputs.build_profile }}
 
